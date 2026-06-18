@@ -25,6 +25,34 @@ test("handles Korean wrapped text", () => {
   );
 });
 
+test("removes common Codex UI indentation from selected prose", () => {
+  const input = `  codex
+
+  안에서 원하는 답변 부분을 드래그 → Cmd+C → 붙여넣기 하면 됩니다.
+
+  만약 termcopy install에서 에러가 나면 그 출력 그대로 보내줘. 그 경우 LaunchAgent 로딩
+  문제를 바로 고치면 됩니다.`;
+
+  const result = cleanTerminalText(input);
+
+  assert.equal(
+    result.text,
+    "codex\n\n안에서 원하는 답변 부분을 드래그 → Cmd+C → 붙여넣기 하면 됩니다.\n\n만약 termcopy install에서 에러가 나면 그 출력 그대로 보내줘. 그 경우 LaunchAgent 로딩 문제를 바로 고치면 됩니다."
+  );
+});
+
+test("removes Codex UI indentation before unwrapping bullets", () => {
+  const input = `  • 현재 코드를 보니 실제로 ask()가 검색, 체크리스트, 승인 요청을 순서대로 실행하고 로그
+    만 남깁니다.`;
+
+  const result = cleanTerminalText(input);
+
+  assert.equal(
+    result.text,
+    "• 현재 코드를 보니 실제로 ask()가 검색, 체크리스트, 승인 요청을 순서대로 실행하고 로그 만 남깁니다."
+  );
+});
+
 test("preserves separate bullets", () => {
   const input = `- First item\n- Second item\n  continued detail`;
 

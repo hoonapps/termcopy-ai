@@ -140,8 +140,7 @@ async function writeCleaned(input, options, label) {
 }
 
 async function watchClipboard(options) {
-  let lastSeen = await clipboard.read().catch(() => "");
-  let lastWritten = lastSeen;
+  let lastHandled = null;
 
   if (!options.quiet) {
     process.stderr.write(
@@ -150,14 +149,12 @@ async function watchClipboard(options) {
   }
 
   while (true) {
-    await sleep(options.interval);
-
-    const current = await clipboard.read().catch(() => lastSeen);
-    if (current === lastSeen || current === lastWritten) {
+    const current = await clipboard.read().catch(() => lastHandled);
+    if (current === lastHandled) {
+      await sleep(options.interval);
       continue;
     }
 
-    lastSeen = current;
     const result = cleanTerminalText(current, {
       mode: options.mode,
       stripAnsi: options.stripAnsi
@@ -165,12 +162,16 @@ async function watchClipboard(options) {
 
     if (result.text !== current) {
       await clipboard.write(result.text);
-      lastWritten = result.text;
+      lastHandled = result.text;
 
       if (!options.quiet) {
         process.stderr.write(`Cleaned clipboard: ${formatStats(result)}\n`);
       }
+    } else {
+      lastHandled = current;
     }
+
+    await sleep(options.interval);
   }
 }
 

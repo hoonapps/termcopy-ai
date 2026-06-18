@@ -20,24 +20,27 @@ export function cleanTerminalText(input, options = {}) {
   const stripAnsi = options.stripAnsi ?? true;
   const original = String(input ?? "");
   const normalized = normalizeNewlines(stripAnsi ? stripAnsiCodes(original) : original);
+  const dedented = mode === "raw" || mode === "lines"
+    ? normalized
+    : removeCommonTerminalIndent(normalized);
 
   if (mode === "raw") {
-    return buildResult(original, normalized);
+    return buildResult(original, dedented);
   }
 
   if (mode === "lines") {
-    return buildResult(original, trimRightPerLine(normalized));
+    return buildResult(original, trimRightPerLine(dedented));
   }
 
   if (mode === "paragraph") {
-    return buildResult(original, paragraphJoin(normalized));
+    return buildResult(original, paragraphJoin(dedented));
   }
 
   if (mode !== "smart") {
     throw new Error(`Unsupported mode "${mode}". Use smart, paragraph, lines, or raw.`);
   }
 
-  return buildResult(original, smartJoin(normalized));
+  return buildResult(original, smartJoin(dedented));
 }
 
 export function stripAnsiCodes(text) {
@@ -225,6 +228,26 @@ function trimRightPerLine(text) {
   return text
     .split("\n")
     .map(line => line.trimEnd())
+    .join("\n");
+}
+
+function removeCommonTerminalIndent(text) {
+  const lines = text.split("\n");
+  const indents = lines
+    .filter(line => line.trim() !== "")
+    .map(line => line.match(/^ */)?.[0].length ?? 0);
+
+  if (indents.length === 0) {
+    return text;
+  }
+
+  const commonIndent = Math.min(...indents);
+  if (commonIndent < 1 || commonIndent > 3) {
+    return text;
+  }
+
+  return lines
+    .map(line => (line.trim() === "" ? "" : line.slice(commonIndent)))
     .join("\n");
 }
 
