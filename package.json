@@ -1,0 +1,56 @@
+{
+  "name": "termcopy-ai",
+  "version": "0.1.0",
+  "description": "Copy AI terminal output cleanly by unwrapping visual line breaks and fixing copied selections.",
+  "type": "module",
+  "bin": {
+    "termcopy": "bin/termcopy.js",
+    "tcai": "bin/termcopy.js"
+  },
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test",
+    "lint": "node --check bin/termcopy.js && node --check src/index.js",
+    "prepack": "npm test && npm run lint"
+  },
+  "keywords": [
+    "clipboard",
+    "terminal",
+    "ai",
+    "copy",
+    "cli",
+    "unwrap",
+    "codex",
+    "claude",
+    "chatgpt"
+  ],
+  "author": "Hoonapps",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hoonapps/termcopy-ai.git"
+  },
+  "bugs": {
+    "url": "https://github.com/hoonapps/termcopy-ai/issues"
+  },
+  "homepage": "https://github.com/hoonapps/termcopy-ai#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "clipboardy": "^5.0.0",
+    "commander": "^14.0.2"
+  },
+  "devDependencies": {}
+}
