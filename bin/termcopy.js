@@ -6,8 +6,11 @@ import {
   cleanTerminalText,
   formatStats,
   hasPipedInput,
+  installLaunchAgent,
   readStdin,
-  sleep
+  sleep,
+  uninstallLaunchAgent,
+  getLaunchAgentStatus
 } from "../src/index.js";
 
 const program = new Command();
@@ -58,6 +61,46 @@ program
   .option("-i, --interval <ms>", "clipboard polling interval in milliseconds", parseInterval, 500)
   .option("-q, --quiet", "hide status messages")
   .action(watchClipboard);
+
+program
+  .command("install")
+  .description("Install the macOS background cleaner so normal Cmd+C copies are fixed automatically.")
+  .option("-m, --mode <mode>", "cleaning mode: smart, paragraph, lines, raw", "smart")
+  .option("--no-strip-ansi", "keep ANSI escape sequences")
+  .option("-i, --interval <ms>", "clipboard polling interval in milliseconds", parseInterval, 500)
+  .action(async options => {
+    const result = await installLaunchAgent({
+      mode: options.mode,
+      stripAnsi: options.stripAnsi,
+      interval: options.interval
+    });
+
+    process.stdout.write(`Installed termcopy-ai background cleaner.\n${result.plistPath}\n`);
+  });
+
+program
+  .command("uninstall")
+  .description("Remove the macOS background cleaner.")
+  .action(async () => {
+    const result = await uninstallLaunchAgent();
+    process.stdout.write(
+      result.removed
+        ? "Removed termcopy-ai background cleaner.\n"
+        : "termcopy-ai background cleaner was not installed.\n"
+    );
+  });
+
+program
+  .command("status")
+  .description("Show whether the macOS background cleaner is installed.")
+  .action(async () => {
+    const status = await getLaunchAgentStatus();
+    process.stdout.write(
+      status.installed
+        ? `Installed: ${status.plistPath}\n`
+        : "Not installed.\n"
+    );
+  });
 
 program.parseAsync(process.argv).catch(error => {
   process.stderr.write(`termcopy: ${error.message}\n`);

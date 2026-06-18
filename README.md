@@ -34,25 +34,19 @@ npm link
 
 ## Quick Start
 
-Copy command output directly:
+Install the background cleaner once:
 
 ```bash
-codex "explain this file" | termcopy
+termcopy install
 ```
 
-Clean text that is already in your clipboard:
+Now use Codex normally:
 
-```bash
-termcopy fix
-```
+1. Select exactly the Codex response text you want in the terminal.
+2. Press `Cmd+C`.
+3. Paste anywhere.
 
-Run a clipboard watcher:
-
-```bash
-termcopy watch
-```
-
-With `watch` running, select terminal text, press your normal copy shortcut, and `termcopy-ai` rewrites the clipboard into clean paragraphs automatically.
+The copied text is cleaned automatically in the background. You do not need to pipe Codex through another command.
 
 ## Why There Is No Floating Button
 
@@ -60,16 +54,11 @@ Native terminal apps do not expose a standard JavaScript or npm API that lets a 
 
 `termcopy-ai` uses the most reliable terminal-friendly workflow instead:
 
-1. Select exactly the text you want.
-2. Press your normal copy shortcut.
-3. Run `termcopy fix`, or keep `termcopy watch` running.
-4. Paste clean text anywhere.
+1. `termcopy install` installs a tiny macOS LaunchAgent.
+2. The LaunchAgent watches your clipboard in the background.
+3. When you copy visually wrapped Codex output, it rewrites the clipboard as clean paragraphs.
 
-For a one-key workflow, bind this command in Raycast, Alfred, Keyboard Maestro, macOS Shortcuts, or your terminal hotkey tool:
-
-```bash
-termcopy fix --quiet
-```
+If you do not want a background helper, use `termcopy fix` manually after copying.
 
 ## Commands
 
@@ -105,6 +94,32 @@ Poll the clipboard and clean newly copied terminal selections:
 
 ```bash
 termcopy watch --interval 300
+```
+
+### `termcopy install`
+
+Install the macOS background cleaner:
+
+```bash
+termcopy install
+```
+
+After this, normal terminal selection plus `Cmd+C` is enough. The cleaner starts immediately and restarts at login.
+
+### `termcopy uninstall`
+
+Remove the macOS background cleaner:
+
+```bash
+termcopy uninstall
+```
+
+### `termcopy status`
+
+Show whether the background cleaner is installed:
+
+```bash
+termcopy status
 ```
 
 ## Options
@@ -143,6 +158,15 @@ Use the shorter alias:
 ```bash
 claude "summarize this" | tcai
 ```
+
+Clean Codex selections without changing how you run Codex:
+
+```bash
+termcopy install
+codex
+```
+
+Then select text inside Codex, press `Cmd+C`, and paste the cleaned text.
 
 ## API
 

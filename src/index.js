@@ -1,3 +1,11 @@
+import { execFile } from "node:child_process";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
+import path from "node:path";
+import { promisify } from "node:util";
+
+const execFileAsync = promisify(execFile);
+
 const ANSI_PATTERN =
   // eslint-disable-next-line no-control-regex
   /[\u001B\u009B][[\]()#;?]*(?:(?:(?:[a-zA-Z\d]*(?:;[a-zA-Z\d]*)*)?\u0007)|(?:(?:\d{1,4}(?:;\d{0,4})*)?[\dA-PR-TZcf-nq-uy=><~]))/g;
@@ -60,9 +68,157 @@ export function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+export async function installLaunchAgent(options = {}) {
+  assertMacOS();
+
+  const plistPath = getLaunchAgentPath();
+  const logDir = path.join(homedir(), "Library", "Logs");
+  const scriptPath = process.argv[1];
+  const args = [
+    process.execPath,
+    scriptPath,
+    "watch",
+    "--quiet",
+    "--mode",
+    options.mode ?? "smart",
+    "--interval",
+    String(options.interval ?? 500)
+  ];
+
+  if (options.stripAnsi === false) {
+    args.push("--no-strip-ansi");
+  }
+
+  const plist = buildLaunchAgentPlist({
+    label: LAUNCH_AGENT_LABEL,
+    args,
+    stdoutPath: path.join(logDir, "termcopy-ai.log"),
+    stderrPath: path.join(logDir, "termcopy-ai.error.log")
+  });
+
+  await mkdir(path.dirname(plistPath), { recursive: true });
+  await writeFile(plistPath, plist, "utf8");
+  await unloadLaunchAgent(plistPath);
+  await loadLaunchAgent(plistPath);
+
+  return { plistPath };
+}
+
+export async function uninstallLaunchAgent() {
+  assertMacOS();
+
+  const plistPath = getLaunchAgentPath();
+  const installed = await fileExists(plistPath);
+  await unloadLaunchAgent(plistPath);
+
+  if (installed) {
+    await rm(plistPath, { force: true });
+  }
+
+  return { removed: installed, plistPath };
+}
+
+export async function getLaunchAgentStatus() {
+  const plistPath = getLaunchAgentPath();
+  const installed = await fileExists(plistPath);
+
+  return { installed, plistPath };
+}
+
 export function formatStats(result) {
   const lineLabel = result.linesRemoved === 1 ? "line break" : "line breaks";
   return `${result.linesRemoved} ${lineLabel} removed, ${result.characters} characters`;
+}
+
+const LAUNCH_AGENT_LABEL = "com.hoonapps.termcopy-ai";
+
+function getLaunchAgentPath() {
+  return path.join(homedir(), "Library", "LaunchAgents", `${LAUNCH_AGENT_LABEL}.plist`);
+}
+
+function assertMacOS() {
+  if (process.platform !== "darwin") {
+    throw new Error("background install is currently supported on macOS only");
+  }
+}
+
+async function fileExists(filePath) {
+  try {
+    await readFile(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function loadLaunchAgent(plistPath) {
+  const userId = process.getuid?.();
+
+  if (typeof userId === "number") {
+    try {
+      await execFileAsync("launchctl", ["bootstrap", `gui/${userId}`, plistPath]);
+      await execFileAsync("launchctl", ["kickstart", "-k", `gui/${userId}/${LAUNCH_AGENT_LABEL}`]);
+      return;
+    } catch {
+      // Fall back to the older launchctl interface on older macOS versions.
+    }
+  }
+
+  await execFileAsync("launchctl", ["load", "-w", plistPath]);
+}
+
+async function unloadLaunchAgent(plistPath) {
+  const userId = process.getuid?.();
+
+  if (typeof userId === "number") {
+    try {
+      await execFileAsync("launchctl", ["bootout", `gui/${userId}`, plistPath]);
+      return;
+    } catch {
+      // Not loaded, or older macOS. Try the legacy command and ignore failures.
+    }
+  }
+
+  try {
+    await execFileAsync("launchctl", ["unload", plistPath]);
+  } catch {
+    // The agent may not be installed yet.
+  }
+}
+
+function buildLaunchAgentPlist({ label, args, stdoutPath, stderrPath }) {
+  const escapedArgs = args.map(arg => `    <string>${escapeXml(arg)}</string>`).join("\n");
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>${escapeXml(label)}</string>
+  <key>ProgramArguments</key>
+  <array>
+${escapedArgs}
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>${escapeXml(stdoutPath)}</string>
+  <key>StandardErrorPath</key>
+  <string>${escapeXml(stderrPath)}</string>
+</dict>
+</plist>
+`;
+}
+
+function escapeXml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&apos;");
 }
 
 function trimRightPerLine(text) {
